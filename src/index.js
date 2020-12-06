@@ -6,13 +6,14 @@ const {ApolloServer,gql} = require ('apollo-server');
 // "!" is used to allow null values
 const typeDefs = gql`
 type  Query{
-    hello:String!
+    hello(name:String):String!
     user:User
 } 
 
 type User {
-    id:ID!,
+    id:ID!
     username : String!
+    firstLetterOfUserName:String!
 }
 
 type   Error  {
@@ -25,15 +26,31 @@ type RegisterResponse {
     user:User
 }
 
+input UserInfo{
+    username:String!
+    password:String!
+    age:Int
+}
+
 type Mutation {
-    register(username:String!,password:String!,age:Int) :  RegisterResponse
-    login(username:String!,password:String!,age:Int) :  Boolean!
+    register(userInfo:UserInfo) :  RegisterResponse
+    login(userInfo:UserInfo) :  String!
 }
 `;
 
 const resolvers = {
+    User:{
+        username : parent=>{
+            return parent.username
+        },
+        firstLetterOfUserName : parent=>{
+            return parent.username[0]
+        },
+    },
     Query :{
-        hello:() =>"hello world",
+        hello:(parent,{name}) =>{
+            return `Hey ${name}`;
+        },
         user:()=>
         ({
             id:1,
@@ -41,7 +58,10 @@ const resolvers = {
         })
     },
     Mutation:{
-        login:()=>true,
+        login: async(parent,{userInfo:{username}},context,info)=>{
+            console.log(context)
+            return username;
+        },
         register :()=>({
             error:[,
                 {
@@ -61,7 +81,7 @@ const resolvers = {
     }
 }
 
-const server = new ApolloServer({typeDefs,resolvers});
+const server = new ApolloServer({typeDefs,resolvers,context:({req,res})=>({})});
 
 server.listen().then(({url})=> console.log(`Server started at ${url}`));
 
