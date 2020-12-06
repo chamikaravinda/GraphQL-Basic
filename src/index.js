@@ -1,6 +1,6 @@
 //GraphQL cheat sheat link :https://github.com/sogko/graphql-schema-language-cheat-sheet
 
-const {ApolloServer,gql} = require ('apollo-server');
+const {ApolloServer,gql,PubSub} = require ('apollo-server');
 
 //create the schema
 // "!" is used to allow null values
@@ -36,9 +36,18 @@ type Mutation {
     register(userInfo:UserInfo) :  RegisterResponse
     login(userInfo:UserInfo) :  String!
 }
+
+type Subscription{
+    newUser:User!
+}
 `;
 
 const resolvers = {
+    Subscription:{
+        newUser:{
+            subscribe:(_,__,{pubsub})=>pubsub.asyncIterator(NEW_USER)
+        }
+    },
     User:{
         username : parent=>{
             return parent.username
@@ -62,26 +71,43 @@ const resolvers = {
             console.log(context)
             return username;
         },
-        register :()=>({
-            error:[,
-                {
-                    field:"Username",
-                    message:"Bad user name"
-                },
-                {
-                field:"Email",
-                message:"Bad email"
-            }],
-            user:{
+        register :(_,{username},{pubsub})=>{
+
+            const user={
                 id:1,
-                username:"username"
+                username
+            };
+
+            pubsub.publish(NEW_USER,{
+                newUser:user
+            });
+
+            return {
+                error:[,
+                    {
+                        field:"Username",
+                        message:"Bad user name"
+                    },
+                    {
+                    field:"Email",
+                    message:"Bad email"
+                }],
+                user:{
+                    id:1,
+                    username:"username"
+                }            
             }
-            
-        })
+        }
     }
 }
 
-const server = new ApolloServer({typeDefs,resolvers,context:({req,res})=>({})});
+const pubsub = new PubSub();
+
+const server = new ApolloServer({
+    typeDefs,
+    resolvers,
+    context:({req,res})=>({})
+});
 
 server.listen().then(({url})=> console.log(`Server started at ${url}`));
 
